@@ -68,6 +68,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 #relaxSub{margin:0;color:var(--ink);font-size:17px}
 #scare .dart .pupils{animation:dart 1.1s steps(1) infinite}
 @keyframes dart{0%{transform:translate(-6px,0)}35%{transform:translate(6px,0)}70%{transform:translate(-3px,3px)}}
+#scareVid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
+#scare > :not(video){position:relative;z-index:1}
+#scare.vid .face,#scare.calm .face{display:none}
+#scare.calm{background:#000}
+#scare.vid #scareVid{animation:slamv .2s ease-out both, shake .45s .2s linear both}
+@keyframes slamv{from{transform:scale(.3);opacity:0}to{transform:scale(1.08);opacity:1}}
+#scare.vid #scareText{position:absolute;left:0;right:0;margin:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 32px);padding-inline:16px}
 .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 .ghostbtn{background:none;border:1px solid var(--line);color:var(--dim);border-radius:12px;padding:12px 18px;font-size:15px}
 
@@ -107,7 +114,7 @@ form button{background:var(--cyan);color:#05040a;border:0;border-radius:12px;pad
 
 @media (prefers-reduced-motion:reduce){
   #wake .ghost,#stall .net line,#scare .dart .pupils{animation:none}
-  #scare.slam .face{animation:none}
+  #scare.slam .face,#scare.vid #scareVid{animation:none}
 }
 </style>
 
@@ -172,6 +179,7 @@ form button{background:var(--cyan);color:#05040a;border:0;border-radius:12px;pad
 
 <!-- 2/3. SCARE + REVEAL -->
 <section class="screen" id="scare" hidden>
+  <video id="scareVid" muted playsinline webkit-playsinline preload="auto" hidden><source src="scare.mp4" type="video/mp4"></video>
   <svg class="face" viewBox="0 0 400 400" id="faceSvg" role="img" aria-label="A three-eyed pumpkin with too many teeth">
     <use href="#body"/>
     <g id="evilEyes">
@@ -284,7 +292,7 @@ function audio(){
   try{
     if(navigator.audioSession) navigator.audioSession.type='playback'; // lets iPhones play even on silent switch (Safari 16.4+)
     if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
-      const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=.9;master.connect(comp).connect(ctx.destination)}
+      const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=1;master.connect(comp).connect(ctx.destination)}
     if(ctx.state==='suspended')ctx.resume();
     // tiny silent blip inside the tap to fully unlock mobile audio
     const o=ctx.createOscillator(),g=ctx.createGain();g.gain.value=0;o.connect(g).connect(master);o.start();o.stop(ctx.currentTime+.02);
@@ -292,11 +300,11 @@ function audio(){
 }
 function startDrone(){
   if(!soundOn||!ctx)return;
-  const t=ctx.currentTime,g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+3.5);g.connect(master);
+  const t=ctx.currentTime,g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+5.5);g.connect(master);
   const a=ctx.createOscillator(),b=ctx.createOscillator();a.type='sine';b.type='triangle';a.frequency.value=55;b.frequency.value=58.3;
   a.connect(g);b.connect(g);a.start();b.start();
   // heartbeat thumps
-  const beats=[];for(let i=0;i<5;i++){const bt=t+.4+i*.78;[0,.17].forEach(off=>{const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.setValueAtTime(70,bt+off);o.frequency.exponentialRampToValueAtTime(38,bt+off+.15);
+  const beats=[];for(let i=0;i<7;i++){const bt=t+.4+i*.78;[0,.17].forEach(off=>{const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.setValueAtTime(70,bt+off);o.frequency.exponentialRampToValueAtTime(38,bt+off+.15);
     og.gain.setValueAtTime(0,bt+off);og.gain.linearRampToValueAtTime(.55+i*.08,bt+off+.01);og.gain.exponentialRampToValueAtTime(.001,bt+off+.2);o.connect(og).connect(master);o.start(bt+off);o.stop(bt+off+.25);beats.push(o)})}
   drone={g,a,b,beats};
 }
@@ -305,20 +313,48 @@ function stopDrone(){
   try{drone.g.gain.cancelScheduledValues(t);drone.g.gain.setValueAtTime(drone.g.gain.value,t);drone.g.gain.linearRampToValueAtTime(0,t+.05);drone.a.stop(t+.1);drone.b.stop(t+.1);drone.beats.forEach(o=>{try{o.stop()}catch(e){}})}catch(e){}
   drone=null;
 }
+/* recorded scare sound (scare.mp3 next to this page); synth sound is the fallback */
+let scareBuf=null;
+function loadScareAudio(){
+  if(scareBuf||!ctx)return;
+  fetch('scare.mp3').then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
+    .then(ab=>new Promise((res,rej)=>ctx.decodeAudioData(ab,res,rej)))
+    .then(b=>{scareBuf=b}).catch(()=>{});
+}
 function scareSound(){
-  if(!soundOn||!ctx)return;const t=ctx.currentTime;
+  if(!soundOn||!ctx)return;
+  if(scareBuf){const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=scareBuf;g.gain.value=1;s.connect(g).connect(ctx.destination);s.start();return}
+  const t=ctx.currentTime;
   // low boom
   const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(32,t+.7);
-  g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(.001,t+1.4);o.connect(g).connect(master);o.start(t);o.stop(t+1.5);
+  g.gain.setValueAtTime(.9,t);g.gain.exponentialRampToValueAtTime(.001,t+1.2);o.connect(g).connect(master);o.start(t);o.stop(t+1.5);
   // noise crash
   const len=ctx.sampleRate*1.2,buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
   const n=ctx.createBufferSource();n.buffer=buf;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=900;bp.Q.value=.6;
-  const ng=ctx.createGain();ng.gain.setValueAtTime(.9,t);ng.gain.exponentialRampToValueAtTime(.001,t+.9);n.connect(bp).connect(ng).connect(master);n.start(t);
-  // dissonant screech with vibrato
-  const sg=ctx.createGain();sg.gain.setValueAtTime(0,t);sg.gain.linearRampToValueAtTime(.32,t+.03);sg.gain.exponentialRampToValueAtTime(.001,t+1.9);
-  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3200;sg.connect(lp).connect(master);
-  const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=9;lg.gain.value=28;lfo.connect(lg);lfo.start(t);lfo.stop(t+2);
-  [740,784,1046,1109].forEach(f=>{const s=ctx.createOscillator();s.type='sawtooth';s.frequency.setValueAtTime(f,t);s.frequency.linearRampToValueAtTime(f*.82,t+1.8);lg.connect(s.frequency);s.connect(sg);s.start(t);s.stop(t+2)});
+  const ng=ctx.createGain();ng.gain.setValueAtTime(1.2,t);ng.gain.exponentialRampToValueAtTime(.001,t+.9);n.connect(bp).connect(ng).connect(master);n.start(t);
+  scream(t,2.4);
+}
+/* synthesized human-like scream: rough voiced source shaped by vowel formants + breath noise */
+function scream(t,dur){
+  const out=ctx.createGain();
+  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.05);out.gain.setValueAtTime(1,t+dur*.55);out.gain.exponentialRampToValueAtTime(.001,t+dur);
+  const shaper=ctx.createWaveShaper();const curve=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;curve[i]=Math.tanh(2.6*x)}shaper.curve=curve;
+  out.connect(shaper).connect(master);
+  // vowel formants (an open 'AAH' sliding toward 'EEH')
+  const forms=[[950,6,1],[1550,8,.75],[2900,10,.5],[3800,12,.3]].map(([f,q,gv])=>{const b=ctx.createBiquadFilter();b.type='bandpass';b.frequency.setValueAtTime(f,t);b.frequency.linearRampToValueAtTime(f*1.12,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.value=gv*2.2;b.connect(g).connect(out);return b});
+  // roughness: fast amplitude wobble that makes screams sound harsh
+  const rough=ctx.createGain();rough.gain.value=.65;const am=ctx.createOscillator(),amg=ctx.createGain();am.frequency.value=63;amg.gain.value=.35;am.connect(amg).connect(rough.gain);am.start(t);am.stop(t+dur);
+  forms.forEach(b=>rough.connect(b));
+  // pitch contour: shriek up, hold with vibrato, sag down
+  const vib=ctx.createOscillator(),vg=ctx.createGain();vib.frequency.value=7;vg.gain.value=45;vib.connect(vg);vib.start(t);vib.stop(t+dur);
+  const jit=ctx.createOscillator(),jg=ctx.createGain();jit.type='triangle';jit.frequency.value=17;jg.gain.value=22;jit.connect(jg);jit.start(t);jit.stop(t+dur);
+  [[0,'sawtooth',.7],[9,'sawtooth',.5],[-1200,'square',.25]].forEach(([cents,type,lv])=>{
+    const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;o.detune.value=cents;og.gain.value=lv;
+    o.frequency.setValueAtTime(620,t);o.frequency.linearRampToValueAtTime(1280,t+.14);o.frequency.linearRampToValueAtTime(1180,t+dur*.6);o.frequency.exponentialRampToValueAtTime(640,t+dur);
+    vg.connect(o.frequency);jg.connect(o.frequency);o.connect(og).connect(rough);o.start(t);o.stop(t+dur)});
+  // breath
+  const len=Math.floor(ctx.sampleRate*dur),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const n=ctx.createBufferSource();n.buffer=buf;const nb=ctx.createBiquadFilter();nb.type='bandpass';nb.frequency.value=2600;nb.Q.value=.8;const ng=ctx.createGain();ng.gain.value=.35;n.connect(nb).connect(ng).connect(out);n.start(t);
 }
 function giggle(){
   if(!soundOn||!ctx)return;const t=ctx.currentTime;
@@ -346,16 +382,37 @@ function resetEyes(){for(const [id,el] of [['pL',pL],['pR',pR],['pM',pM]]){el.se
 const termLines=['> booting PumpkinGPT-mini…','> loading 3B parameters <span class="ok">(2.9B are seeds)</span>','> attention heads: 3 <span class="ok">(all looking at you)</span>','> uncertainty estimation: <span class="ok">skipped</span>'];
 function runStall(){
   show('stall');const term=$('#term'),fill=$('#barFill'),pct=$('#pct');term.innerHTML='';fill.style.width='0%';pct.textContent='0%';
-  termLines.forEach((l,i)=>later(()=>{term.innerHTML+=(i?'\n':'')+l},i*550));
+  termLines.forEach((l,i)=>later(()=>{term.innerHTML+=(i?'\n':'')+l},i*900));
   startDrone();
-  const steps=[[0,0],[1200,87],[1800,98],[2300,99]];let t0=performance.now();
+  const steps=[[0,0],[2400,87],[3500,98],[4300,99]];let t0=performance.now();
   (function tick(now){const t=now-t0;let v=99;for(let i=0;i<steps.length-1;i++){const [ta,va]=steps[i],[tb,vb]=steps[i+1];if(t<tb){v=va+(vb-va)*((t-ta)/(tb-ta));break}}
-    fill.style.width=v+'%';pct.textContent=Math.floor(v)+'%';if(t<2300&&!$('#stall').hidden)requestAnimationFrame(tick)})(t0);
-  later(()=>{$('#calib').textContent='Calibrating confidence…  ███████ stuck'},2600);
-  later(()=>{stopDrone();show('black')},3800);
-  later(runScare,4700);
+    fill.style.width=v+'%';pct.textContent=Math.floor(v)+'%';if(t<4300&&!$('#stall').hidden)requestAnimationFrame(tick)})(t0);
+  later(()=>{$('#calib').textContent='Calibrating confidence…  ███████ stuck'},4600);
+  later(()=>{stopDrone();show('black')},5800);
+  later(runScare,6700);
+}
+/* optional video jump scare: plays scare.mp4 if it sits next to this page, otherwise the pumpkin face */
+const vid=$('#scareVid');let vidOK=false;
+vid.addEventListener('loadeddata',()=>{vidOK=true});
+vid.addEventListener('error',()=>{vidOK=false},true);
+function unlockVid(){
+  try{vid.muted=true;const pr=vid.play();if(pr)pr.then(()=>{vid.pause();vid.currentTime=0}).catch(()=>{})}catch(e){}
+}
+function runVideoScare(){
+  const sc=$('#scare');let finished=false;
+  sc.classList.remove('calm');sc.classList.add('vid');vid.hidden=false;
+  ['#relaxText','#relaxSub','#relaxBtns'].forEach(s=>$(s).hidden=true);$('#scareText').hidden=false;
+  try{vid.pause();vid.currentTime=0}catch(e){}
+  vid.muted=true;show('scare');scareSound();
+  const pr=vid.play();if(pr)pr.catch(()=>{vid.muted=true;vid.play().catch(()=>{})});
+  try{navigator.vibrate&&navigator.vibrate([300,90,500])}catch(e){}
+  const done=()=>{if(finished)return;finished=true;vid.pause();vid.hidden=true;sc.classList.remove('vid');relax()};
+  vid.onended=done;
+  later(done,Math.min(12000,((isFinite(vid.duration)&&vid.duration)||8)*1000+400));
 }
 function runScare(){
+  $('#scare').classList.remove('calm');
+  if(vidOK){runVideoScare();return}
   goofy=false;tracking=false;resetEyes();
   $('#mouthScary').removeAttribute('hidden');$('#mouthGoofy').setAttribute('hidden','');$('#evilEyes').removeAttribute('hidden');$('#goofyPupils').setAttribute('hidden','');
   ['#relaxText','#relaxSub','#relaxBtns'].forEach(s=>$(s).hidden=true);$('#scareText').hidden=false;
@@ -366,15 +423,15 @@ function runScare(){
   later(relax,2700);
 }
 function relax(){
-  goofy=true;$('#scare').classList.remove('dart');
+  goofy=true;$('#scare').classList.remove('dart');$('#scare').classList.add('calm');
   // hallucinating: cross-eyed, third eye looks up
   $('#evilEyes').setAttribute('hidden','');$('#goofyPupils').removeAttribute('hidden');
   $('#mouthScary').setAttribute('hidden','');$('#mouthGoofy').removeAttribute('hidden');
   $('#scareText').hidden=true;['#relaxText','#relaxSub','#relaxBtns'].forEach(s=>$(s).hidden=false);
   giggle();
 }
-function toStart(){clearTimers();stopDrone();$('#calib').textContent='Calibrating confidence…';show('wake')}
-$('#wakeBtn').addEventListener('click',()=>{audio();clearTimers();runStall()});
+function toStart(){clearTimers();try{vid.pause();vid.hidden=true;$('#scare').classList.remove('vid')}catch(e){}stopDrone();$('#calib').textContent='Calibrating confidence…';show('wake')}
+$('#wakeBtn').addEventListener('click',()=>{audio();loadScareAudio();unlockVid();clearTimers();runStall()});
 $('#enterBtn').addEventListener('click',()=>{show('oracle');$('#oracle').scrollTop=0});
 $('#replay1').addEventListener('click',toStart);
 $('#replay2').addEventListener('click',toStart);
