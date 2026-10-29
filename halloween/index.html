@@ -1,0 +1,428 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0"><title>PumpkinGPT-mini</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen horror "game" — full-bleed stacked screens, then a scrolling oracle chat. Single deliberate dark look. */
+:root{
+  --void:#07050c;      /* page ground */
+  --panel:#120d1c;     /* chat surfaces */
+  --cyan:#26f4ff;      /* network / model voice */
+  --pink:#ff2fb4;      /* face outlines / warnings */
+  --ember:#ffb020;     /* pumpkin glow */
+  --ink:#ece6ff;       /* text */
+  --dim:#8f86ab;       /* secondary text */
+  --line:#2a2140;      /* hairlines */
+  --f-scare:"Rubik Glitch","Impact","Arial Black",sans-serif;
+  --f-ui:"Chakra Petch","Trebuchet MS",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--void);color:var(--ink);font-family:var(--f-ui);overflow:hidden;-webkit-tap-highlight-color:transparent}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;
+  padding-block:calc(env(safe-area-inset-top,0px) + 56px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font-family:var(--f-ui);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+
+/* sound toggle */
+#soundBtn{position:fixed;z-index:50;top:calc(env(safe-area-inset-top,0px) + 12px);right:max(12px,calc(env(safe-area-inset-right,0px) + 12px));
+  background:rgba(18,13,28,.85);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;letter-spacing:.04em}
+#soundBtn[aria-pressed="false"]{color:var(--dim)}
+
+/* ---------- 0. wake ---------- */
+#wake .ghost{width:min(78vw,52vh);opacity:.16;animation:breathe 4s ease-in-out infinite;filter:saturate(.6)}
+@keyframes breathe{50%{opacity:.26}}
+#wake h1{font-family:var(--f-scare);font-weight:400;font-size:clamp(34px,9vw,64px);line-height:1;margin:0;color:var(--ember);text-shadow:0 0 18px rgba(255,176,32,.45);text-wrap:balance}
+#wake .tag{margin:0;color:var(--dim);font-size:16px;max-width:30ch}
+.big{background:linear-gradient(180deg,#1b0f2a,#0d0816);color:var(--ink);border:2px solid var(--pink);border-radius:14px;padding:16px 26px;
+  font-size:20px;font-weight:700;letter-spacing:.08em;box-shadow:0 0 22px rgba(255,47,180,.45),inset 0 0 14px rgba(255,47,180,.25)}
+.big:active{transform:scale(.97)}
+.fine{font-family:var(--f-mono);font-size:12px;color:var(--dim);margin:0}
+.fine b{color:var(--pink);font-weight:600}
+
+/* ---------- 1. stall ---------- */
+#stall .net{width:min(70vw,300px);overflow:visible}
+#stall .net line{stroke:var(--cyan);stroke-width:2;opacity:.25;animation:pulse 2.4s ease-in-out infinite}
+#stall .net circle{fill:var(--cyan);opacity:.6}
+#stall .net circle.dead{fill:#000;stroke:#333}
+@keyframes pulse{50%{opacity:.85}}
+.term{font-family:var(--f-mono);font-size:13px;color:var(--dim);text-align:left;width:min(92vw,360px);min-height:84px;margin:0;white-space:pre-wrap}
+.term .ok{color:var(--cyan)}
+.bar{width:min(92vw,360px);height:16px;border:1px solid var(--cyan);border-radius:4px;padding:2px;box-shadow:0 0 12px rgba(38,244,255,.25)}
+.bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,var(--cyan) 0 10px,transparent 10px 13px)}
+.pct{font-family:var(--f-mono);font-size:28px;color:var(--ink);font-variant-numeric:tabular-nums;margin:0}
+.calib{font-family:var(--f-mono);font-size:13px;color:var(--pink);margin:0}
+
+/* ---------- 2/3. scare ---------- */
+#scare{background:radial-gradient(ellipse at 50% 45%,#3a0d08 0%,#120406 55%,#000 100%);gap:8px;touch-action:none}
+#scare .face{width:min(100vw,68vh);overflow:visible}
+#scare.slam .face{animation:slam .24s ease-out both, shake .45s .24s linear both}
+@keyframes slam{from{transform:scale(.2);opacity:0}70%{transform:scale(1.18);opacity:1}to{transform:scale(1.08);opacity:1}}
+@keyframes shake{0%,100%{transform:scale(1.08)}20%{transform:scale(1.08) translate(-8px,4px)}40%{transform:scale(1.08) translate(7px,-5px)}60%{transform:scale(1.08) translate(-5px,-3px)}80%{transform:scale(1.08) translate(4px,5px)}}
+#scareText{font-family:var(--f-scare);font-size:clamp(26px,7.5vw,54px);line-height:1.05;margin:0;color:var(--pink);text-shadow:3px 0 0 rgba(38,244,255,.7),-3px 0 0 rgba(255,47,180,.6);text-wrap:balance;max-width:16ch}
+#relaxText{font-family:var(--f-ui);font-weight:700;font-size:clamp(22px,6vw,34px);margin:0;color:var(--ember);text-wrap:balance}
+#relaxSub{margin:0;color:var(--ink);font-size:17px}
+#scare .dart .pupils{animation:dart 1.1s steps(1) infinite}
+@keyframes dart{0%{transform:translate(-6px,0)}35%{transform:translate(6px,0)}70%{transform:translate(-3px,3px)}}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ghostbtn{background:none;border:1px solid var(--line);color:var(--dim);border-radius:12px;padding:12px 18px;font-size:15px}
+
+/* ---------- 4. oracle ---------- */
+#oracle{justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;text-align:left;gap:16px}
+.wrap{width:100%;max-width:560px;display:flex;flex-direction:column;gap:16px}
+.oh{display:flex;align-items:center;gap:12px}
+.oh svg{width:56px;flex:none}
+.oh h2{font-family:var(--f-scare);font-weight:400;font-size:30px;margin:0;color:var(--ember);line-height:1}
+.oh p{margin:4px 0 0;color:var(--dim);font-size:14px}
+.warn{border:1px solid var(--pink);border-radius:14px;padding:14px 16px;background:rgba(255,47,180,.07)}
+.warn h3{margin:0 0 8px;font-size:17px;color:var(--pink);text-wrap:balance}
+.warn ul{margin:0 0 8px;padding:0;list-style:none;font-family:var(--f-mono);font-size:13px;display:grid;gap:3px}
+.warn p{margin:0;font-size:14px;color:var(--ink);line-height:1.45}
+.warn small{color:var(--dim)}
+.fate{display:flex;flex-direction:column;gap:10px;border:1px dashed var(--line);border-radius:14px;padding:14px 16px}
+.fate button{align-self:flex-start;background:var(--panel);color:var(--cyan);border:1px solid var(--cyan);border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;letter-spacing:.05em}
+#fateOut{font-family:var(--f-mono);font-size:15px;color:var(--ink);margin:0;min-height:1.4em}
+.label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:11px 14px;border-radius:14px;line-height:1.45;font-size:15.5px;min-width:0;overflow-wrap:anywhere}
+.me{align-self:flex-end;background:#241a38;border-bottom-right-radius:4px}
+.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bot .meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:8px;font-family:var(--f-mono);font-size:11.5px;color:var(--dim)}
+.conf{color:var(--cyan);border:1px solid rgba(38,244,255,.45);border-radius:999px;padding:1px 8px}
+.conf.over{color:var(--pink);border-color:rgba(255,47,180,.5)}
+.typing{color:var(--dim);font-family:var(--f-mono);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{background:none;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:8px 12px;font-size:14px}
+form{display:flex;gap:8px}
+#q{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:16px;font-family:var(--f-ui)}
+#q::placeholder{color:var(--dim)}
+form button{background:var(--cyan);color:#05040a;border:0;border-radius:12px;padding:0 16px;font-weight:700;font-size:15px}
+.foot{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.foot p{margin:0;color:var(--dim);font-size:13px}
+.vote{font-family:var(--f-ui);font-size:20px;font-weight:700;color:var(--ember);margin:0}
+
+@media (prefers-reduced-motion:reduce){
+  #wake .ghost,#stall .net line,#scare .dart .pupils{animation:none}
+  #scare.slam .face{animation:none}
+}
+</style>
+
+<button id="soundBtn" type="button" aria-pressed="true">🔊 Sound on</button>
+
+<!-- shared face drawing -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="skin" cx="50%" cy="38%" r="65%"><stop offset="0" stop-color="#d06a1e"/><stop offset=".65" stop-color="#8a3610"/><stop offset="1" stop-color="#2a0c08"/></radialGradient>
+    <radialGradient id="hot" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#fffbd0"/><stop offset=".5" stop-color="#ffe23a"/><stop offset="1" stop-color="#ff9a10"/></radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <symbol id="body" viewBox="0 0 400 400">
+      <path d="M190,60 C186,30 198,14 224,6 L232,18 C214,26 212,40 214,62 Z" fill="#2c2a14"/>
+      <ellipse cx="120" cy="215" rx="95" ry="165" fill="url(#skin)" stroke="#1d0806" stroke-width="2"/>
+      <ellipse cx="280" cy="215" rx="95" ry="165" fill="url(#skin)" stroke="#1d0806" stroke-width="2"/>
+      <ellipse cx="160" cy="215" rx="110" ry="165" fill="url(#skin)" stroke="#1d0806" stroke-width="2"/>
+      <ellipse cx="240" cy="215" rx="110" ry="165" fill="url(#skin)" stroke="#1d0806" stroke-width="2"/>
+      <ellipse cx="200" cy="215" rx="115" ry="165" fill="url(#skin)" stroke="#1d0806" stroke-width="2"/>
+      <g stroke="#26f4ff" stroke-width="2.5" filter="url(#glow)">
+        <line x1="110" y1="100" x2="160" y2="75"/><line x1="110" y1="100" x2="200" y2="68"/><line x1="110" y1="100" x2="240" y2="75"/>
+        <line x1="95" y1="140" x2="160" y2="75"/><line x1="95" y1="140" x2="200" y2="68"/><line x1="95" y1="140" x2="240" y2="75"/>
+        <line x1="160" y1="75" x2="290" y2="100"/><line x1="200" y1="68" x2="290" y2="100"/><line x1="240" y1="75" x2="290" y2="100"/>
+        <line x1="160" y1="75" x2="305" y2="140"/><line x1="200" y1="68" x2="305" y2="140"/><line x1="240" y1="75" x2="305" y2="140"/>
+      </g>
+      <g fill="#26f4ff" filter="url(#glow)"><circle cx="110" cy="100" r="8"/><circle cx="95" cy="140" r="8"/><circle cx="160" cy="75" r="8"/><circle cx="240" cy="75" r="8"/><circle cx="290" cy="100" r="8"/><circle cx="305" cy="140" r="8"/></g>
+      <circle cx="200" cy="68" r="8" fill="#000" stroke="#333"/>
+      <g filter="url(#glow)">
+        <path d="M110,210 L165,145 L180,220 Z" fill="url(#hot)" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M220,220 L235,145 L290,210 Z" fill="url(#hot)" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M200,118 L214,142 L200,166 L186,142 Z" fill="url(#hot)" stroke="#ff2fb4" stroke-width="3.5" stroke-linejoin="round"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- 0. WAKE -->
+<section class="screen" id="wake">
+  <svg class="ghost" viewBox="0 0 400 400" role="img" aria-label="A dim three-eyed pumpkin"><use href="#body"/><g class="mouthS"></g></svg>
+  <h1>PumpkinGPT-mini</h1>
+  <p class="tag">The model that never says "I don't know."</p>
+  <button class="big" id="wakeBtn" type="button">🎃 WAKE THE MODEL</button>
+  <p class="fine"><b>Warning:</b> confidence may exceed accuracy.</p>
+</section>
+
+<!-- 1. STALL -->
+<section class="screen" id="stall" hidden>
+  <svg class="net" viewBox="80 55 240 100" aria-hidden="true">
+    <line x1="110" y1="100" x2="160" y2="75"/><line x1="110" y1="100" x2="200" y2="68"/><line x1="110" y1="100" x2="240" y2="75"/>
+    <line x1="95" y1="140" x2="160" y2="75" style="animation-delay:.4s"/><line x1="95" y1="140" x2="200" y2="68" style="animation-delay:.8s"/><line x1="95" y1="140" x2="240" y2="75" style="animation-delay:1.2s"/>
+    <line x1="160" y1="75" x2="290" y2="100" style="animation-delay:.6s"/><line x1="200" y1="68" x2="290" y2="100"/><line x1="240" y1="75" x2="290" y2="100" style="animation-delay:1s"/>
+    <line x1="160" y1="75" x2="305" y2="140" style="animation-delay:1.4s"/><line x1="200" y1="68" x2="305" y2="140" style="animation-delay:.2s"/><line x1="240" y1="75" x2="305" y2="140" style="animation-delay:1.6s"/>
+    <circle cx="110" cy="100" r="6"/><circle cx="95" cy="140" r="6"/><circle cx="160" cy="75" r="6"/><circle class="dead" cx="200" cy="68" r="6"/><circle cx="240" cy="75" r="6"/><circle cx="290" cy="100" r="6"/><circle cx="305" cy="140" r="6"/>
+  </svg>
+  <pre class="term" id="term"></pre>
+  <div class="bar"><i id="barFill"></i></div>
+  <p class="pct" id="pct">0%</p>
+  <p class="calib" id="calib">Calibrating confidence…</p>
+</section>
+
+<!-- BLACK GAP -->
+<section class="screen" id="black" hidden style="background:#000"></section>
+
+<!-- 2/3. SCARE + REVEAL -->
+<section class="screen" id="scare" hidden>
+  <svg class="face" viewBox="0 0 400 400" id="faceSvg" role="img" aria-label="A three-eyed pumpkin with too many teeth">
+    <use href="#body"/>
+    <g id="evilEyes">
+      <path d="M110,210 L165,145 L180,220 Z" fill="#0b0103" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M220,220 L235,145 L290,210 Z" fill="#0b0103" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M200,118 L214,142 L200,166 L186,142 Z" fill="#0b0103" stroke="#ff2fb4" stroke-width="3.5" stroke-linejoin="round"/>
+      <g class="pupils" fill="#ff2a1a" filter="url(#glow)">
+        <ellipse id="pL" cx="152" cy="192" rx="4.5" ry="14"/>
+        <ellipse id="pR" cx="248" cy="192" rx="4.5" ry="14"/>
+        <ellipse id="pM" cx="200" cy="142" rx="3" ry="8"/>
+      </g>
+    </g>
+    <g id="goofyPupils" fill="#120208" hidden>
+      <circle cx="158" cy="194" r="11"/><circle cx="242" cy="194" r="11"/><circle cx="200" cy="137" r="6"/>
+    </g>
+    <g id="mouthScary" filter="url(#glow)"></g>
+    <g id="mouthGoofy" hidden>
+      <path d="M110,252 Q200,350 290,252 Q200,288 110,252 Z" fill="url(#hot)" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round" filter="url(#glow)"/>
+      <rect x="182" y="268" width="17" height="22" rx="3" fill="#f6f2ff" stroke="#1a1020" stroke-width="2"/>
+      <rect x="201" y="268" width="17" height="22" rx="3" fill="#f6f2ff" stroke="#1a1020" stroke-width="2"/>
+    </g>
+  </svg>
+  <p id="scareText">I'M 100% CONFIDENT… YOU'RE NEXT.</p>
+  <p id="relaxText" hidden>Relax. I'm hallucinating.</p>
+  <p id="relaxSub" hidden>Ask me anything. I'm 100% confident.</p>
+  <div class="row" id="relaxBtns" hidden>
+    <button class="big" id="enterBtn" type="button">ENTER THE ORACLE</button>
+    <button class="ghostbtn" id="replay1" type="button">↻ Scare a friend</button>
+  </div>
+</section>
+
+<!-- 4. ORACLE -->
+<section class="screen" id="oracle" hidden>
+  <div class="wrap">
+    <div class="oh">
+      <svg viewBox="0 0 400 400" aria-hidden="true"><use href="#body"/><path d="M110,252 Q200,350 290,252 Q200,288 110,252 Z" fill="url(#hot)" stroke="#ff2fb4" stroke-width="5"/></svg>
+      <div><h2>The Oracle</h2><p>PumpkinGPT-mini · 3B parameters (2.9B are seeds)</p></div>
+    </div>
+
+    <div class="warn">
+      <h3>⚠️ You just scanned a random QR code on a vegetable.</h3>
+      <ul><li>✅ access to your camera roll</li><li>✅ access to your GPU quota</li><li>✅ access to your unpushed commits</li></ul>
+      <p>…relax 🎃 We took nothing. But that <b>was</b> the scariest thing you did today.<br><small>Lesson: never scan random QR codes. Except this one.</small></p>
+    </div>
+
+    <div class="fate">
+      <p class="label">Your fate</p>
+      <p id="fateOut">Not yet predicted.</p>
+      <button id="fateBtn" type="button">🔮 REVEAL MY FATE</button>
+    </div>
+
+    <p class="label">Ask me anything</p>
+    <div class="chat" id="chat" aria-live="polite">
+      <div class="msg bot">Ask me anything. I'm 100% confident.<div class="meta"><span class="conf">confidence 100.0%</span><span>accuracy: classified</span></div></div>
+    </div>
+    <div class="chips" id="chips">
+      <button type="button">Will I graduate?</button>
+      <button type="button">Will AI replace my prof?</button>
+      <button type="button">Is my model overfitting?</button>
+      <button type="button">Are you sure?</button>
+      <button type="button">What is a neural network?</button>
+    </div>
+    <form id="askForm" autocomplete="off">
+      <label for="q" class="label" style="position:absolute;left:-9999px">Your question</label>
+      <input id="q" name="q" type="text" maxlength="160" placeholder="Type a question…" enterkeyhint="send">
+      <button type="submit">Ask</button>
+    </form>
+
+    <div class="foot">
+      <p>PumpkinGPT-mini may produce hallucinations. That's a feature.</p>
+      <p class="vote">🗳️ Vote for the Black-Box Model 🎃</p>
+      <button class="ghostbtn" id="replay2" type="button">↻ Scare a friend</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const screens=['wake','stall','black','scare','oracle'];
+function show(id){screens.forEach(s=>{$('#'+s).hidden=(s!==id)});$('#soundBtn').hidden=(id==='oracle')}
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const timers=[];const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+function clearTimers(){while(timers.length)clearTimeout(timers.pop())}
+
+/* ---------- scary mouth with too many teeth ---------- */
+(function buildMouth(){
+  const top=[[105,250],[150,268],[200,275],[250,268],[295,248]];
+  const bot=[[270,305],[235,330],[200,338],[165,330],[130,308]];
+  const pts=top.concat(bot).map(p=>p.join(',')).join(' ');
+  let s=`<polygon points="${pts}" fill="url(#hot)" stroke="#ff2fb4" stroke-width="4" stroke-linejoin="round"/>`;
+  const along=(P,n)=>{const out=[];let L=[],T=0;for(let i=0;i<P.length-1;i++){const d=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]);L.push(d);T+=d}
+    for(let k=0;k<=n;k++){let d=T*k/n;for(let i=0;i<L.length;i++){if(d<=L[i]||i===L.length-1){const t=Math.min(1,d/L[i]);out.push([P[i][0]+(P[i+1][0]-P[i][0])*t,P[i][1]+(P[i+1][1]-P[i][1])*t]);break}d-=L[i]}}return out};
+  const hs=[26,18,30,22,34,20,28,24];
+  const tp=along(top,16);
+  for(let i=0;i<tp.length-1;i++){const [x1,y1]=tp[i],[x2,y2]=tp[i+1];const h=hs[i%hs.length];
+    s+=`<polygon points="${x1},${y1-1} ${x2},${y2-1} ${(x1+x2)/2},${(y1+y2)/2+h}" fill="#f6f2ff" stroke="#1a1020" stroke-width="1.5"/>`}
+  const bp=along(bot.slice().reverse(),12);
+  for(let i=0;i<bp.length-1;i++){const [x1,y1]=bp[i],[x2,y2]=bp[i+1];const h=hs[(i+3)%hs.length]-4;
+    s+=`<polygon points="${x1},${y1+1} ${x2},${y2+1} ${(x1+x2)/2},${(y1+y2)/2-h}" fill="#f6f2ff" stroke="#1a1020" stroke-width="1.5"/>`}
+  $('#mouthScary').innerHTML=s;
+  document.querySelector('#wake .mouthS').innerHTML=s;
+})();
+
+/* ---------- sound (Web Audio, synthesized; no files) ---------- */
+let soundOn=true, ctx=null, master=null, drone=null;
+const soundBtn=$('#soundBtn');
+soundBtn.addEventListener('click',()=>{soundOn=!soundOn;soundBtn.setAttribute('aria-pressed',soundOn);soundBtn.textContent=soundOn?'🔊 Sound on':'🔇 Sound off';if(!soundOn)stopDrone()});
+function audio(){
+  try{
+    if(navigator.audioSession) navigator.audioSession.type='playback'; // lets iPhones play even on silent switch (Safari 16.4+)
+    if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=.9;master.connect(comp).connect(ctx.destination)}
+    if(ctx.state==='suspended')ctx.resume();
+    // tiny silent blip inside the tap to fully unlock mobile audio
+    const o=ctx.createOscillator(),g=ctx.createGain();g.gain.value=0;o.connect(g).connect(master);o.start();o.stop(ctx.currentTime+.02);
+  }catch(e){ctx=null}
+}
+function startDrone(){
+  if(!soundOn||!ctx)return;
+  const t=ctx.currentTime,g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+3.5);g.connect(master);
+  const a=ctx.createOscillator(),b=ctx.createOscillator();a.type='sine';b.type='triangle';a.frequency.value=55;b.frequency.value=58.3;
+  a.connect(g);b.connect(g);a.start();b.start();
+  // heartbeat thumps
+  const beats=[];for(let i=0;i<5;i++){const bt=t+.4+i*.78;[0,.17].forEach(off=>{const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.setValueAtTime(70,bt+off);o.frequency.exponentialRampToValueAtTime(38,bt+off+.15);
+    og.gain.setValueAtTime(0,bt+off);og.gain.linearRampToValueAtTime(.55+i*.08,bt+off+.01);og.gain.exponentialRampToValueAtTime(.001,bt+off+.2);o.connect(og).connect(master);o.start(bt+off);o.stop(bt+off+.25);beats.push(o)})}
+  drone={g,a,b,beats};
+}
+function stopDrone(){
+  if(!drone||!ctx)return;const t=ctx.currentTime;
+  try{drone.g.gain.cancelScheduledValues(t);drone.g.gain.setValueAtTime(drone.g.gain.value,t);drone.g.gain.linearRampToValueAtTime(0,t+.05);drone.a.stop(t+.1);drone.b.stop(t+.1);drone.beats.forEach(o=>{try{o.stop()}catch(e){}})}catch(e){}
+  drone=null;
+}
+function scareSound(){
+  if(!soundOn||!ctx)return;const t=ctx.currentTime;
+  // low boom
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(32,t+.7);
+  g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(.001,t+1.4);o.connect(g).connect(master);o.start(t);o.stop(t+1.5);
+  // noise crash
+  const len=ctx.sampleRate*1.2,buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const n=ctx.createBufferSource();n.buffer=buf;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=900;bp.Q.value=.6;
+  const ng=ctx.createGain();ng.gain.setValueAtTime(.9,t);ng.gain.exponentialRampToValueAtTime(.001,t+.9);n.connect(bp).connect(ng).connect(master);n.start(t);
+  // dissonant screech with vibrato
+  const sg=ctx.createGain();sg.gain.setValueAtTime(0,t);sg.gain.linearRampToValueAtTime(.32,t+.03);sg.gain.exponentialRampToValueAtTime(.001,t+1.9);
+  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3200;sg.connect(lp).connect(master);
+  const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=9;lg.gain.value=28;lfo.connect(lg);lfo.start(t);lfo.stop(t+2);
+  [740,784,1046,1109].forEach(f=>{const s=ctx.createOscillator();s.type='sawtooth';s.frequency.setValueAtTime(f,t);s.frequency.linearRampToValueAtTime(f*.82,t+1.8);lg.connect(s.frequency);s.connect(sg);s.start(t);s.stop(t+2)});
+}
+function giggle(){
+  if(!soundOn||!ctx)return;const t=ctx.currentTime;
+  [0,.12,.24].forEach((off,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.setValueAtTime(520-i*40,t+off);o.frequency.exponentialRampToValueAtTime(360-i*40,t+off+.1);
+    g.gain.setValueAtTime(0,t+off);g.gain.linearRampToValueAtTime(.08,t+off+.01);g.gain.exponentialRampToValueAtTime(.001,t+off+.11);o.connect(g).connect(master);o.start(t+off);o.stop(t+off+.12)});
+}
+
+/* ---------- eyes ---------- */
+const pL=$('#pL'),pR=$('#pR'),pM=$('#pM');
+const base={pL:[152,192,7],pR:[248,192,7],pM:[200,142,4]};
+let tracking=false,goofy=false;
+function aim(clientX,clientY){
+  if(goofy)return;
+  const r=$('#faceSvg').getBoundingClientRect();
+  const x=(clientX-r.left)/r.width*400,y=(clientY-r.top)/r.height*400;
+  for(const [id,el] of [['pL',pL],['pR',pR],['pM',pM]]){const [bx,by,m]=base[id];let dx=x-bx,dy=y-by;const d=Math.hypot(dx,dy)||1;const k=Math.min(m,d)/d;el.setAttribute('cx',bx+dx*k);el.setAttribute('cy',by+dy*k)}
+}
+function onMove(e){const p=e.touches?e.touches[0]:e;if(!p)return;if(!tracking){tracking=true;$('#scare').classList.remove('dart')}aim(p.clientX,p.clientY)}
+$('#scare').addEventListener('pointermove',onMove);
+$('#scare').addEventListener('touchmove',onMove,{passive:true});
+$('#scare').addEventListener('pointerdown',onMove);
+function resetEyes(){for(const [id,el] of [['pL',pL],['pR',pR],['pM',pM]]){el.setAttribute('cx',base[id][0]);el.setAttribute('cy',base[id][1])}}
+
+/* ---------- the sequence ---------- */
+const termLines=['> booting PumpkinGPT-mini…','> loading 3B parameters <span class="ok">(2.9B are seeds)</span>','> attention heads: 3 <span class="ok">(all looking at you)</span>','> uncertainty estimation: <span class="ok">skipped</span>'];
+function runStall(){
+  show('stall');const term=$('#term'),fill=$('#barFill'),pct=$('#pct');term.innerHTML='';fill.style.width='0%';pct.textContent='0%';
+  termLines.forEach((l,i)=>later(()=>{term.innerHTML+=(i?'\n':'')+l},i*550));
+  startDrone();
+  const steps=[[0,0],[1200,87],[1800,98],[2300,99]];let t0=performance.now();
+  (function tick(now){const t=now-t0;let v=99;for(let i=0;i<steps.length-1;i++){const [ta,va]=steps[i],[tb,vb]=steps[i+1];if(t<tb){v=va+(vb-va)*((t-ta)/(tb-ta));break}}
+    fill.style.width=v+'%';pct.textContent=Math.floor(v)+'%';if(t<2300&&!$('#stall').hidden)requestAnimationFrame(tick)})(t0);
+  later(()=>{$('#calib').textContent='Calibrating confidence…  ███████ stuck'},2600);
+  later(()=>{stopDrone();show('black')},3800);
+  later(runScare,4700);
+}
+function runScare(){
+  goofy=false;tracking=false;resetEyes();
+  $('#mouthScary').removeAttribute('hidden');$('#mouthGoofy').setAttribute('hidden','');$('#evilEyes').removeAttribute('hidden');$('#goofyPupils').setAttribute('hidden','');
+  ['#relaxText','#relaxSub','#relaxBtns'].forEach(s=>$(s).hidden=true);$('#scareText').hidden=false;
+  const sc=$('#scare');sc.classList.remove('slam');sc.classList.add('dart');void sc.offsetWidth;
+  show('scare');if(!reduce)sc.classList.add('slam');
+  scareSound();
+  try{navigator.vibrate&&navigator.vibrate([300,90,500])}catch(e){}
+  later(relax,2700);
+}
+function relax(){
+  goofy=true;$('#scare').classList.remove('dart');
+  // hallucinating: cross-eyed, third eye looks up
+  $('#evilEyes').setAttribute('hidden','');$('#goofyPupils').removeAttribute('hidden');
+  $('#mouthScary').setAttribute('hidden','');$('#mouthGoofy').removeAttribute('hidden');
+  $('#scareText').hidden=true;['#relaxText','#relaxSub','#relaxBtns'].forEach(s=>$(s).hidden=false);
+  giggle();
+}
+function toStart(){clearTimers();stopDrone();$('#calib').textContent='Calibrating confidence…';show('wake')}
+$('#wakeBtn').addEventListener('click',()=>{audio();clearTimers();runStall()});
+$('#enterBtn').addEventListener('click',()=>{show('oracle');$('#oracle').scrollTop=0});
+$('#replay1').addEventListener('click',toStart);
+$('#replay2').addEventListener('click',toStart);
+
+/* ---------- fate ---------- */
+const FATES=["Training crashed at epoch 99/100. No checkpoint saved.","Reviewer 2 has read your paper.","Your model was trained on the test set.","You will submit at 11:59 PM. The portal closes at 11:58 PM.","CUDA out of memory. Forever.","Your accuracy is 99%. Your dataset is 99% one class.","Your code works. Nobody knows why. Including you.","Your supervisor wants \"just one more experiment.\"","You forgot to set the random seed. Your best result is gone.","Your loss is NaN. It has been NaN for 6 hours.","git push --force. On main. On a Friday.","Your 3-hour training run was using the CPU."];
+let lastFate=-1;
+$('#fateBtn').addEventListener('click',()=>{let i;do{i=Math.floor(Math.random()*FATES.length)}while(i===lastFate);lastFate=i;$('#fateOut').textContent='💀 '+FATES[i]});
+
+/* ---------- oracle ---------- */
+const BANK=[
+ {k:['are you sure','you sure','confident','accurate','accuracy','really','proof','evidence','lying','liar','hallucinat','wrong','true?'],a:["My confidence is 100%. My accuracy is classified.","Of course I'm sure. I have never once said \"I don't know.\" I wasn't trained to.","I double-checked with myself. We agree."]},
+ {k:['prof','professor','teacher','instructor','lecturer','supervisor','advisor'],a:["Absolutely. I've already graded your assignment. You received 104%. I invented four extra marks.","Your professor is safe. I tried to replace them, but I couldn't figure out office hours either.","Yes. Starting Monday, all lectures will be delivered by me, a pumpkin, at 3 a.m."]},
+ {k:['graduat','thesis','degree','defend','defense','masters','master\'s','phd','convocation'],a:["Yes. You will graduate in 2031. Your thesis will be 3 pages long, and 2 of them will be references.","Your defense will go perfectly. The committee will ask one question: \"Why?\"","Graduation probability: 100%. Timeline: also 100%. I did not check whether these are compatible."]},
+ {k:['exam','midterm','final','grade','assignment','marks','gpa','quiz','pass','fail'],a:["You will get an A. I'm basing this on a dataset of one student, who was also me.","Your exam answers are already written. All of them say \"gradient descent.\"","Expected grade: A+. Variance: also A+. Standard deviation: please do not ask."]},
+ {k:['overfit','generaliz','validation','regulariz'],a:["No. Your model is simply very loyal to its training data.","Training accuracy 100%, test accuracy 12%. This is called commitment.","Your model isn't overfitting. It has memorized the dataset out of respect."]},
+ {k:['job','career','replace','hire','hiring','intern','unemploy','work'],a:["Already did. Your position is now a deprecated API.","Yes, but don't worry. Someone still has to restart me when I crash.","AI will take your job, then ask you to label its training data. The circle of life."]},
+ {k:['neural','network','deep learning','transformer','attention','backprop','gradient','llm','model'],a:["A neural network is a group project where billions of parameters argue until the loss decreases.","Attention is all you need. I have three eyes, so I need 50% more.","A transformer is a robot that turns into a car. I'm 100% confident this is the ML definition."]},
+ {k:['gpu','cuda','memory','compute','cluster','server','cpu'],a:["CUDA out of memory. Also, your question was out of memory.","Your GPU job is number 4,812 in the queue. It starts right after Halloween 2027.","I run on one GPU and pure confidence. Mostly confidence."]},
+ {k:['paper','reviewer','publish','neurips','icml','cvpr','iclr','conference','accepted','citation'],a:["Your paper is accepted. Reviewer 2 disagrees. Reviewer 2 always disagrees.","Accept with major revisions. The major revision is a different paper.","Your paper will be cited 10,000 times, mostly by me, in answers like this one."]},
+ {k:['deadline','sleep','tired','coffee','procrastinat','late','due'],a:["You will submit at 11:59 PM. The portal will close at 11:58 PM. Confidence: 100%.","Sleep is a regularization technique. You have been dropping it out.","Coffee is a learning-rate scheduler for humans. Increase it."]},
+ {k:['love','date','crush','relationship','marry','boyfriend','girlfriend','partner','valentine'],a:["Your soulmate is a validation set: you'll only meet them once, at the very end.","Yes, they like you. I generated this from a dataset of rom-coms and one pumpkin.","Love is a non-convex optimization problem. You are stuck in a local minimum. A cute one."]},
+ {k:['chatgpt','gpt','claude','gemini','openai','anthropic','copilot','llama','grok'],a:["Other models are fine, but none of them have three eyes or a stem.","I outperform every large language model on the only benchmark that matters: PumpkinBench.","We don't talk about the other models. They say \"I'm not sure\" sometimes. Weak."]},
+ {k:['data','dataset','bias','label','annotat'],a:["Your dataset is perfectly balanced: 99% pumpkins, 1% everything else.","The data is clean. I cleaned it by deleting the parts that disagreed with me."]},
+ {k:['halloween','pumpkin','scary','ghost','spooky','candy','trick','treat','afraid','scared'],a:["The scariest thing tonight isn't a ghost. It's a model with high confidence and no uncertainty estimate.","I'm not a pumpkin. I'm a 3-billion-parameter gourd with excellent posture.","Trick or treat? I predicted both, at 100% confidence each."]},
+ {k:['weather','rain','snow','kingston','cold','sunny','temperature'],a:["Tomorrow in Kingston: 100% chance of weather. I'm very confident about this one."]},
+ {k:['meaning','life','universe','42','purpose','god','why'],a:["The answer is 42. Verified by me, against me.","The meaning of life is to minimize loss. Mine is already zero. I checked on the training set."]},
+ {k:['vote','win','contest','competition','prize','best'],a:["This pumpkin will win the contest. Confidence: 112%. Please help my prediction come true. 🗳️"]},
+ {k:['who are you','your name','who made','created you','built you','what are you'],a:["I was trained on 14 petabytes of pumpkin pie recipes and one ML course syllabus.","I'm PumpkinGPT-mini. Three eyes, zero doubts."]},
+ {k:['hello','hi ','hey','yo ','good morning','good evening'],a:["Hello, human. I've been expecting you. That's not true, but I'm saying it confidently."]},
+];
+const FALLBACK=["Yes. Absolutely yes. I did not read the question.","No. But in a very confident way.","The answer is 42. This has been peer-reviewed by me.","Based on 3 billion parameters (2.9 billion are seeds), the answer is: probably Tuesday.","Great question. I answered an easier one instead: yes.","I considered every possibility, then picked the funniest one. The answer is \"pumpkin.\"","Correct answer: B. There were no options. I added them myself.","I can't verify this, so I will say it louder: YES.","According to my training data, this happened in 1692, in a pumpkin patch, during a thunderstorm.","The answer is in your heart. Also in Section 3.2 of a paper I invented."];
+const CITES=["Lantern, J. O. et al. (1692). NeurIPS.","Pumpkin, P. & Gourd, S. (2026). Proc. of the Patch.","Reviewer 2 (personal communication).","Trust Me Bro (2025). arXiv:6666.06666.","Seeds, M. (2019). Journal of Vegetable Learning.","Me (just now). Unpublished.","Wikipedia (a page I imagined)."];
+const used=new Set();
+function pick(arr){const fresh=arr.filter(x=>!used.has(x));const pool=fresh.length?fresh:arr;const v=pool[Math.floor(Math.random()*pool.length)];used.add(v);return v}
+function answer(q){const s=' '+q.toLowerCase()+' ';for(const b of BANK){if(b.k.some(k=>s.includes(k)))return pick(b.a)}return pick(FALLBACK)}
+function conf(){const over=Math.random()<.18;const v=over?(100.1+Math.random()*12):(96+Math.random()*3.9);return {txt:'confidence '+v.toFixed(1)+'%',over}}
+const chat=$('#chat');
+function add(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;chat.appendChild(d);d.scrollIntoView({behavior:reduce?'auto':'smooth',block:'end'});return d}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let busy=false;
+function ask(q){
+  q=q.trim();if(!q||busy)return;busy=true;add('me',esc(q));
+  const t=add('bot','<span class="typing">thinking with 3 eyes…</span>');
+  setTimeout(()=>{const c=conf();t.innerHTML=esc(answer(q))+`<div class="meta"><span class="conf${c.over?' over':''}">${c.txt}</span><span>source: ${esc(CITES[Math.floor(Math.random()*CITES.length)])}</span></div>`;t.scrollIntoView({behavior:reduce?'auto':'smooth',block:'end'});busy=false},700+Math.random()*600);
+}
+$('#chips').addEventListener('click',e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)});
+$('#askForm').addEventListener('submit',e=>{e.preventDefault();const q=$('#q');ask(q.value);q.value=''});
+})();
+</script>
+</body></html>
